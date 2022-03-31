@@ -20,6 +20,7 @@ import struct
 from bleak import BleakClient
 import time
 import os
+import logging
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
@@ -34,13 +35,16 @@ bucket=os.getenv("INFLUXDB_BUCKET")
 ca=os.getenv("INFLUXDB_CA")
 
 
-async def writeinflux(plugname, data):
+async def writeinflux(plug, data):
 	write_api = influxClient.write_api(write_options=SYNCHRONOUS)
-	point = Point(measurement).tag("plug", plugname) \
+	point = Point(measurement).tag("plug", plug['name']) \
 		.field("voltage", data['voltage']) \
 		.field("current", data['current']) \
 		.field("wattage", data['wattage']) \
 		.field("uptime", data['uptime'])
+	if('tags' in plug):
+		for tag, value in plug['tags'].items():
+			point.tag(tag, value)
 	write_api.write(bucket=bucket, record=[point])
 
 def unpack(packed):
@@ -64,7 +68,7 @@ async def connectDevice(device):
 			payload = unpack(data)
 			loop.call_soon_threadsafe(dataReceived.set_result, payload)
 		await client.connect()
-		print("connected!")
+		logging.debug("connected!")
 		await asyncio.wait_for(client.start_notify(config['characteristics']['read'], collect), timeout=10.0)
 		currtime = int(time.time())
 		packedtime = [x for x in struct.pack(">I", currtime)]
@@ -82,16 +86,16 @@ async def connectDevice(device):
 		)
 		payload = await asyncio.wait_for(dataReceived, timeout=5.0)
 		try:
-			print(payload)
-			await writeinflux(device['name'], payload)
+			logging.debug(payload)
+			await writeinflux(device, payload)
 		except Exception as e:
-			print("influx write failed", e)
-		print("got data, closing")
+			logging.error("influx write failed", e)
+		logging.debug("got data, closing")
 		await client.stop_notify(config['characteristics']['read'])
 	except asyncio.TimeoutError as e:
-		print("timed out", e)
+		logging.error("timed out", e)
 	except Exception as e:
-		print(e)
+		logging.error(e)
 	finally:
 		await client.disconnect()
 
@@ -100,11 +104,11 @@ async def main():
 	influxClient = InfluxDBClient(url=host, token=token, org=org, ssl_ca_cert=ca)
 	while True:
 		for device in config['devices']:
-			print("starting {}".format(device['addr']))
+			logging.debug("starting {}".format(device['addr']))
 			await connectDevice(device)
-			print("ended {}".format(device['addr']))
+			logging.debug("ended {}".format(device['addr']))
 			await asyncio.sleep(0.5)
-		print("finished device loop")
+		logging.debug("finished device loop")
 	influxClient.close()
 
 loop = asyncio.get_event_loop()

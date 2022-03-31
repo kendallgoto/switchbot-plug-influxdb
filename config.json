@@ -7,7 +7,10 @@
 	"devices": [
 		{
 			"addr": "60:55:f9:29:f0:6e",
-			"name": "testing"
+			"name": "testing",
+			"tags": {
+				"psu": "my-parent-psu"
+			}
 		}
 	]
 }
