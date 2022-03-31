@@ -1,4 +1,4 @@
 bleak
 influxdb-client
-dotenv
+python-dotenv
 
