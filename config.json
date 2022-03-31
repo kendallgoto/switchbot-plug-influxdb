@@ -1,0 +1,13 @@
+{
+	"characteristics": {
+		"service": "CBA20D00-224D-11E6-9FB8-0002A5D5C51B",
+		"write": "CBA20002-224D-11E6-9FB8-0002A5D5C51B",
+		"read": "CBA20003-224D-11E6-9FB8-0002A5D5C51B"
+	},
+	"devices": [
+		{
+			"addr": "60:55:f9:29:f0:6e",
+			"name": "testing"
+		}
+	]
+}

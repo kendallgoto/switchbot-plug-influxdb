@@ -1,0 +1,4 @@
+bleak
+influxdb-client
+dotenv
+
