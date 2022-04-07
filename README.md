@@ -28,3 +28,11 @@ Imports a point into InfluxDB with the following data:
     }
 }
 ```
+
+## Troubleshooting
+### Characteristic Cache
+Sometimes the characteristic cache of a device will get corrupted and need to be reset. This can be seen in logs with repeated failures of:
+```
+Characteristic with UUID CBA20003-224D-11E6-9FB8-0002A5D5C51B could not be found!
+```
+See [here](https://bleak.readthedocs.io/en/latest/troubleshooting.html#id2) for more info

@@ -23,6 +23,7 @@ import os
 import logging
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
+from timeit import default_timer as timer
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -33,7 +34,25 @@ token=os.getenv("INFLUXDB_TOKEN")
 org=os.getenv("INFLUXDB_ORG")
 bucket=os.getenv("INFLUXDB_BUCKET")
 ca=os.getenv("INFLUXDB_CA")
+debug=bool(os.getenv("DEBUG"))
 
+DEVICE_SLEEP=0.5
+RECONNECT_SLEEP=1
+CONNECT_ATTEMPT=5
+STARTNOTIFY_TIMEOUT=10.0
+GETDATA_TIMEOUT=5.0
+# init logging
+logger = logging.getLogger("SwitchBot")
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+if(debug):
+	logger.setLevel(logging.DEBUG)
+else:
+	logger.setLevel(logging.INFO)
 
 async def writeinflux(plug, data):
 	write_api = influxClient.write_api(write_options=SYNCHRONOUS)
@@ -60,6 +79,7 @@ with open('config.json') as f:
 	config = json.load(f)
 
 async def connectDevice(device):
+	result = 0
 	client = BleakClient(device['addr'])
 	try:
 		loop = asyncio.get_event_loop()
@@ -67,9 +87,19 @@ async def connectDevice(device):
 		def collect(sender, data):
 			payload = unpack(data)
 			loop.call_soon_threadsafe(dataReceived.set_result, payload)
-		await client.connect()
-		logging.debug("connected!")
-		await asyncio.wait_for(client.start_notify(config['characteristics']['read'], collect), timeout=10.0)
+		for i in range(0, CONNECT_ATTEMPT):
+			try:
+				await client.connect()
+				break
+			except Exception as e:
+				if(i == CONNECT_ATTEMPT-1):
+					logger.error("BT connect failed, giving up")
+					raise e
+				logger.debug("BT connect failed, try {0}: {1}".format(i, e))
+				await asyncio.sleep(RECONNECT_SLEEP)
+		logger.debug("connected!")
+		await asyncio.wait_for(client.start_notify(config['characteristics']['read'], collect), timeout=STARTNOTIFY_TIMEOUT)
+
 		currtime = int(time.time())
 		packedtime = [x for x in struct.pack(">I", currtime)]
 
@@ -84,31 +114,47 @@ async def connectDevice(device):
 			config['characteristics']['write'],
 			bytearray(command)
 		)
-		payload = await asyncio.wait_for(dataReceived, timeout=5.0)
+		payload = await asyncio.wait_for(dataReceived, timeout=GETDATA_TIMEOUT)
 		try:
-			logging.debug(payload)
+			logger.debug(payload)
 			await writeinflux(device, payload)
+			result = 1
 		except Exception as e:
-			logging.error("influx write failed", e)
-		logging.debug("got data, closing")
+			logger.error("influx write failed", e)
+		logger.debug("got data, closing")
 		await client.stop_notify(config['characteristics']['read'])
 	except asyncio.TimeoutError as e:
-		logging.error("timed out", e)
+		logger.error("timed out", e)
 	except Exception as e:
-		logging.error(e)
+		logger.error(e)
 	finally:
 		await client.disconnect()
+		return result
 
 async def main():
 	global influxClient
 	influxClient = InfluxDBClient(url=host, token=token, org=org, ssl_ca_cert=ca)
+	devCount = len(config['devices'])
 	while True:
-		for device in config['devices']:
-			logging.debug("starting {}".format(device['addr']))
-			await connectDevice(device)
-			logging.debug("ended {}".format(device['addr']))
-			await asyncio.sleep(0.5)
-		logging.debug("finished device loop")
+		deviceSuccesses = 0
+		startTime = timer()
+		for indx,device in enumerate(config['devices']):
+			logger.debug("starting {} / \"{}\" ({}/{})".format(
+				device['addr'],
+				device['name'],
+				indx,
+				devCount
+			))
+			result = await connectDevice(device)
+			deviceSuccesses += result
+			logger.debug("ended {} / \"{}\"".format(device['addr'], device['name']))
+			await asyncio.sleep(DEVICE_SLEEP)
+		endTime = timer()
+		logger.info("completed pass: {0} / {1} devices logged in {2:.2f}s".format(
+			deviceSuccesses,
+			devCount,
+			(endTime-startTime)
+		))
 	influxClient.close()
 
 loop = asyncio.get_event_loop()
