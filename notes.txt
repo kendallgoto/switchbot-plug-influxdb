@@ -32,3 +32,32 @@ response {
 	01 20 -> Current Draw (mA -> 288 = 288mA)
 	00 c3 -> Wattage (dW -> 930 = 93.0W)
 }
+
+V1.1 (stock) http://www.wohand.com/version/wocaotech/firmware/WoPlugUS/WoPlugUS_V11.bin Tue, 07 Dec 2021 07:26:47 GMT
+V1.2 http://www.wohand.com/version/wocaotech/firmware/WoPlugUS/WoPlugUS_V12.bin Tue, 04 Jan 2022 03:54:06 GMT
+UNRELEASED:
+V1.3 http://www.wohand.com/version/wocaotech/firmware/WoPlugUS/WoPlugUS_V13.bin Wed, 09 Mar 2022 02:18:35 GMT
+V1.4 http://www.wohand.com/version/wocaotech/firmware/WoPlugUS/WoPlugUS_V14.bin Sat, 12 Mar 2022 08:34:00 GMT
+
+Update:
+Value: 57 00 03 ?
+	-> 01 01 0b
+Value: 57 0f 04 ?
+	-> 01 35 31 60 55 f9 2a 41 28
+Value: 57 0f 0a 01 0c -> triggers firmware download; 0c describes firmware version
+	-> 01
+Value: 57 0f 0b
+	-> 0100
+Value: 57 0f 0b
+	-> 0100
+Value: 57 0f 0b
+	-> 0100
+...
+Value: 57 0f 0b
+	-> 01 12 -> polling for completion
+Value: 57 0f 0b -> causes reset after device done!
+	-> 01 64 (0x64 = 100%)
+supports downgrading
+	57 0f 0a 01 0c goes to V12
+	57 0f 0a 01 0b goes to V11
+	
