@@ -1,3 +1,5 @@
+**NB: For better reliability, consider using [SwitchbOTA](https://github.com/kendallgoto/switchbota) to instead install Tasmota onto your SwitchBot plug and fetching data over local MQTT.**
+
 # Switchbot-Plug-InfluxDB
 Connects to SwitchBot Plugs over BLE to poll power consumption data and import it into InfluxDB.
 
